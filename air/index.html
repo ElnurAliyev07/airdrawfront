@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirDraw - AI Hand Tracking Drawing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+        
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .glass-dark {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateY(0);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateY(0);
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(240, 147, 251, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateY(0);
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(79, 172, 254, 0.4);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateY(0);
+        }
+        
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(255, 107, 107, 0.4);
+        }
+        
+        .floating-element {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .pulse-glow {
+            animation: pulseGlow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes pulseGlow {
+            from { box-shadow: 0 0 20px rgba(102, 126, 234, 0.3); }
+            to { box-shadow: 0 0 30px rgba(102, 126, 234, 0.6); }
+        }
+        
+        #drawingCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .status-badge {
+            transition: all 0.3s ease;
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.75rem;
+        }
+        
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+        }
+        
+        .brush-sizes {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .prediction-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .prediction-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .mobile-optimized {
+            touch-action: manipulation;
+        }
+        
+        /* Mobile-specific styles */
+        @media (max-width: 768px) {
+            .tool-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .color-palette {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            
+            .mobile-stack {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            
+            /* Smaller text and components for mobile */
+            .mobile-title {
+                font-size: 2.5rem !important;
+            }
+            
+            .mobile-subtitle {
+                font-size: 0.875rem !important;
+            }
+            
+            .mobile-btn {
+                padding: 0.5rem 1rem !important;
+                font-size: 0.75rem !important;
+            }
+            
+            .mobile-status {
+                padding: 0.5rem 1rem !important;
+                font-size: 0.75rem !important;
+            }
+            
+            .mobile-gesture {
+                padding: 0.5rem 1rem !important;
+                font-size: 0.75rem !important;
+            }
+            
+            .mobile-canvas-text {
+                font-size: 1.5rem !important;
+            }
+            
+            .mobile-canvas-emoji {
+                font-size: 3rem !important;
+            }
+            
+            .mobile-canvas-subtitle {
+                font-size: 0.875rem !important;
+            }
+            
+            .mobile-canvas-desc {
+                font-size: 0.75rem !important;
+            }
+            
+            .mobile-dots {
+                width: 0.5rem !important;
+                height: 0.5rem !important;
+            }
+            
+            .mobile-header-padding {
+                padding: 1rem !important;
+            }
+            
+            .mobile-section-padding {
+                padding: 1rem !important;
+            }
+            
+            .mobile-overlay-padding {
+                padding: 1.5rem !important;
+            }
+            
+            .mobile-overlay-title {
+                font-size: 1.25rem !important;
+            }
+            
+            .mobile-overlay-spinner {
+                width: 2rem !important;
+                height: 2rem !important;
+            }
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+            background-size: 200% 100%;
+            animation: progressShine 2s ease-in-out infinite;
+        }
+        
+        @keyframes progressShine {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen mobile-optimized">
+    <div class="container mx-auto p-2 md:p-4 max-w-7xl">
+        <!-- Enhanced Header -->
+        <div class="glass-effect rounded-2xl shadow-2xl mobile-header-padding p-6 mb-4 md:mb-8 floating-element">
+            <div class="flex flex-col lg:flex-row items-center justify-between gap-3 md:gap-6">
+                <div class="text-center lg:text-left">
+                    <h1 class="text-4xl md:text-5xl lg:text-6xl mobile-title font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-1 md:mb-2">
+                        🎨 AirDraw
+                    </h1>
+                    <p class="text-gray-600 text-sm md:text-lg mobile-subtitle font-medium">AI-powered air drawing with advanced hand tracking</p>
+                    <div class="flex items-center justify-center lg:justify-start gap-2 mt-1 md:mt-2">
+                        <div class="w-1.5 h-1.5 md:w-2 md:h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-xs md:text-sm text-gray-500">Real-time AI Recognition</span>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-2 md:gap-3 mobile-stack">
+                    <button id="startBtn" class="btn-primary text-white mobile-btn px-6 py-3 rounded-xl font-semibold text-sm lg:text-base shadow-lg">
+                        <span class="flex items-center gap-1 md:gap-2">
+                            📹 <span>Start Camera</span>
+                        </span>
+                    </button>
+                    <button id="showCameraBtn" class="btn-success text-white mobile-btn px-6 py-3 rounded-xl font-semibold text-sm lg:text-base shadow-lg" disabled>
+                        <span class="flex items-center gap-1 md:gap-2">
+                            👁️ <span>Show Camera</span>
+                        </span>
+                    </button>
+                    <button id="clearBtn" class="btn-secondary text-white mobile-btn px-6 py-3 rounded-xl font-semibold text-sm lg:text-base shadow-lg">
+                        <span class="flex items-center gap-1 md:gap-2">
+                            🧹 <span>Clear</span>
+                        </span>
+                    </button>
+                    <button id="sendToAiBtn" class="btn-primary text-white mobile-btn px-6 py-3 rounded-xl font-semibold text-sm lg:text-base shadow-lg pulse-glow">
+                        <span class="flex items-center gap-1 md:gap-2">
+                            ✨ <span>Send to AI</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 xl:grid-cols-4 gap-4 md:gap-8">
+            <!-- Canvas Area -->
+            <div class="xl:col-span-3 space-y-4 md:space-y-8">
+                <!-- Enhanced Video Canvas -->
+                <div class="glass-effect rounded-2xl shadow-2xl overflow-hidden">
+                    <div class="relative aspect-video bg-gradient-to-br from-gray-900 to-black rounded-2xl overflow-hidden">
+                        <video id="videoElement" autoplay muted playsinline class="w-full h-full object-cover transform scale-x-[-1]" style="display: none;"></video>
+                        <div id="blackScreen" class="w-full h-full bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
+                            <div class="text-white text-center floating-element">
+                                <div class="text-4xl md:text-8xl mobile-canvas-emoji mb-3 md:mb-6 animate-pulse">📹</div>
+                                <h2 class="text-lg md:text-2xl lg:text-3xl mobile-canvas-text font-bold mb-2 md:mb-4">Ready to Create</h2>
+                                <p class="text-sm md:text-lg lg:text-xl mobile-canvas-subtitle opacity-90 mb-1 md:mb-2">Click "Start Camera" to begin your AI drawing journey</p>
+                                <p class="text-xs md:text-sm mobile-canvas-desc opacity-75">Camera permission will be requested</p>
+                                <div class="mt-3 md:mt-6 flex justify-center">
+                                    <div class="flex space-x-1 md:space-x-2">
+                                        <div class="mobile-dots w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
+                                        <div class="mobile-dots w-3 h-3 bg-purple-500 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                                        <div class="mobile-dots w-3 h-3 bg-pink-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <canvas id="drawingCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+                        <canvas id="handCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+                        
+                        <!-- Enhanced Status Overlay -->
+                        <div class="absolute top-2 md:top-6 left-2 md:left-6 space-y-2 md:space-y-3">
+                            <div id="statusBadge" class="glass-dark text-white mobile-status px-6 py-3 rounded-full text-sm font-semibold status-badge">
+                                <span class="flex items-center gap-1 md:gap-2">
+                                    <div class="w-1.5 h-1.5 md:w-2 md:h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                    Ready to start!
+                                </span>
+                            </div>
+                            <div id="gestureBadge" class="glass-effect text-gray-800 mobile-gesture px-6 py-3 rounded-full text-sm font-semibold hidden status-badge">
+                                Gesture info
+                            </div>
+                        </div>
+
+                        <!-- Enhanced Progress Overlay -->
+                        <div id="progressOverlay" class="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center hidden">
+                            <div class="glass-effect mobile-overlay-padding p-10 rounded-2xl max-w-md w-full mx-4 text-center">
+                                <div class="loading-spinner mobile-overlay-spinner mx-auto mb-3 md:mb-6"></div>
+                                <h3 class="text-lg md:text-2xl mobile-overlay-title font-bold mb-3 md:mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">AI is analyzing...</h3>
+                                <div class="w-full bg-gray-200 rounded-full h-3 md:h-4 mb-3 md:mb-6 overflow-hidden">
+                                    <div id="progressBar" class="progress-bar h-3 md:h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                                <p id="progressText" class="text-gray-600 font-medium text-sm md:text-base">0% complete</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enhanced AI Results -->
+                <div id="aiResults" class="glass-effect rounded-2xl shadow-2xl mobile-section-padding p-8 hidden">
+                    <h2 class="text-2xl md:text-3xl font-bold mb-4 md:mb-8 flex items-center gap-2 md:gap-3">
+                        <span class="text-2xl md:text-4xl">✨</span>
+                        <span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">AI Recognition Results</span>
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8 mb-4 md:mb-8">
+                        <!-- Original Sketch -->
+                        <div class="text-center">
+                            <h4 class="font-bold text-base md:text-lg mb-2 md:mb-4 text-gray-700">Your Masterpiece</h4>
+                            <div class="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl flex items-center justify-center shadow-inner p-2 md:p-4">
+                                <img id="originalSketch" class="max-w-full max-h-full object-contain rounded-xl shadow-lg" alt="Your sketch">
+                            </div>
+                        </div>
+
+                        <!-- Prediction -->
+                        <div class="text-center">
+                            <h4 class="font-bold text-base md:text-lg mb-2 md:mb-4 text-gray-700">AI Detected</h4>
+                            <div class="aspect-square bg-gradient-to-br from-purple-500 via-blue-600 to-pink-500 rounded-2xl flex flex-col items-center justify-center text-white p-3 md:p-6 shadow-2xl">
+                                <div id="predictionEmoji" class="text-3xl md:text-6xl mb-2 md:mb-4 animate-bounce">🤖</div>
+                                <h3 id="predictionClass" class="text-lg md:text-2xl font-bold mb-1 md:mb-3 capitalize">Unknown</h3>
+                                <p id="predictionConfidence" class="text-sm md:text-lg opacity-90 font-medium">0% confidence</p>
+                                <div class="mt-2 md:mt-4 w-full bg-white/20 rounded-full h-1.5 md:h-2">
+                                    <div id="confidenceBar" class="bg-white h-1.5 md:h-2 rounded-full transition-all duration-1000" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reference -->
+                        <div class="text-center">
+                            <h4 class="font-bold text-base md:text-lg mb-2 md:mb-4 text-gray-700">Reference Image</h4>
+                            <div class="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl flex items-center justify-center shadow-inner p-2 md:p-4">
+                                <img id="referenceImage" class="max-w-full max-h-full object-contain rounded-xl shadow-lg" alt="Reference">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- All Predictions -->
+                    <div class="border-t border-gray-200 pt-4 md:pt-8">
+                        <h4 class="font-bold text-lg md:text-xl mb-3 md:mb-6 text-gray-700">All Predictions</h4>
+                        <div id="allPredictions" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-4">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enhanced Tools Panel -->
+            <div class="space-y-4 md:space-y-8">
+                <!-- Drawing Tools -->
+                <div class="glass-effect rounded-2xl shadow-2xl mobile-section-padding p-6">
+                    <h3 class="text-lg md:text-xl font-bold mb-3 md:mb-6 flex items-center gap-2">
+                        <span class="text-xl md:text-2xl">🎨</span>
+                        <span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Drawing Tools</span>
+                    </h3>
+                    
+                    <!-- Tool Selection -->
+                    <div class="mb-4 md:mb-6">
+                        <label class="block text-sm font-semibold mb-2 md:mb-3 text-gray-700">Tool Selection</label>
+                        <div class="tool-grid">
+                            <button id="penTool" class="tool-btn bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 md:px-4 py-2 md:py-3 rounded-xl text-xs md:text-sm font-semibold shadow-lg transition-all hover:shadow-xl">
+                                <span class="flex items-center justify-center gap-1 md:gap-2">
+                                    🖊️ <span>Pen</span>
+                                </span>
+                            </button>
+                            <button id="eraserTool" class="tool-btn bg-gradient-to-r from-gray-400 to-gray-500 text-white px-3 md:px-4 py-2 md:py-3 rounded-xl text-xs md:text-sm font-semibold shadow-lg transition-all hover:shadow-xl">
+                                <span class="flex items-center justify-center gap-1 md:gap-2">
+                                    🧹 <span>Eraser</span>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Color Palette -->
+                    <div class="mb-4 md:mb-6">
+                        <label class="block text-sm font-semibold mb-2 md:mb-3 text-gray-700">Color Palette</label>
+                        <div class="color-palette" id="colorPalette">
+                            <!-- Colors will be added by JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Brush Size -->
+                    <div class="mb-4 md:mb-6">
+                        <label class="block text-sm font-semibold mb-2 md:mb-3 text-gray-700">Brush Size</label>
+                        <div class="brush-sizes" id="brushSizes">
+                            <!-- Brush sizes will be added by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="glass-effect rounded-2xl shadow-2xl mobile-section-padding p-6">
+                    <h3 class="text-lg md:text-xl font-bold mb-3 md:mb-6 flex items-center gap-2">
+                        <span class="text-xl md:text-2xl">⚙️</span>
+                        <span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Controls</span>
+                    </h3>
+                    <div class="space-y-3 md:space-y-4">
+                        <button id="mouseBtn" class="w-full btn-success text-white px-4 md:px-6 py-3 md:py-4 rounded-xl font-semibold shadow-lg text-sm md:text-base">
+                            <span class="flex items-center justify-center gap-1 md:gap-2">
+                                🖱️ <span>Enable Touch Mode</span>
+                            </span>
+                        </button>
+                        <button id="handBtn" class="w-full btn-primary text-white px-4 md:px-6 py-3 md:py-4 rounded-xl font-semibold shadow-lg text-sm md:text-base" disabled>
+                            <span class="flex items-center justify-center gap-1 md:gap-2">
+                                ✋ <span>Start Hand Tracking</span>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Enhanced Instructions -->
+                <div class="glass-effect rounded-2xl shadow-2xl mobile-section-padding p-6">
+                    <h3 class="text-lg md:text-xl font-bold mb-3 md:mb-6 flex items-center gap-2">
+                        <span class="text-xl md:text-2xl">📖</span>
+                        <span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">How to Use</span>
+                    </h3>
+                    <div class="space-y-2 md:space-y-4">
+                        <div class="flex items-start gap-2 md:gap-3 p-2 md:p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
+                            <span class="text-base md:text-xl">🎥</span>
+                            <div>
+                                <p class="font-semibold text-gray-800 text-sm md:text-base">Start</p>
+                                <p class="text-xs md:text-sm text-gray-600">Click "Start Camera" for permission</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-2 md:gap-3 p-2 md:p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl">
+                            <span class="text-base md:text-xl">👁️</span>
+                            <div>
+                                <p class="font-semibold text-gray-800 text-sm md:text-base">View</p>
+                                <p class="text-xs md:text-sm text-gray-600">Toggle camera visibility</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-2 md:gap-3 p-2 md:p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
+                            <span class="text-base md:text-xl">📱</span>
+                            <div>
+                                <p class="font-semibold text-gray-800 text-sm md:text-base">Touch</p>
+                                <p class="text-xs md:text-sm text-gray-600">Enable touch mode to draw on screen</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-2 md:gap-3 p-2 md:p-3 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl">
+                            <span class="text-base md:text-xl">✋</span>
+                            <div>
+                                <p class="font-semibold text-gray-800 text-sm md:text-base">Hand</p>
+                                <p class="text-xs md:text-sm text-gray-600">Enable hand tracking</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-2 md:gap-3 p-2 md:p-3 bg-gradient-to-r from-pink-50 to-red-50 rounded-xl">
+                            <span class="text-base md:text-xl">✏️</span>
+                            <div>
+                                <p class="font-semibold text-gray-800 text-sm md:text-base">Draw</p>
+                                <p class="text-xs md:text-sm text-gray-600">Point with index finger</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-2 md:gap-3 p-2 md:p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl">
+                            <span class="text-base md:text-xl">👌</span>
+                            <div>
+                                <p class="font-semibold text-gray-800 text-sm md:text-base">AI</p>
+                                <p class="text-xs md:text-sm text-gray-600">Make OK gesture or click "Send to AI"</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MediaPipe Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
+    <script>
+        class AirDrawApp {
+            constructor() {
+                this.video = document.getElementById('videoElement')
+                this.blackScreen = document.getElementById('blackScreen')
+                this.drawingCanvas = document.getElementById('drawingCanvas')
+                this.handCanvas = document.getElementById('handCanvas')
+                this.drawingCtx = this.drawingCanvas.getContext('2d')
+                this.handCtx = this.handCanvas.getContext('2d')
+
+                // Hidden canvas for AI processing (always 224x224, black bg, white lines, 12px)
+                this.hiddenCanvas = document.createElement('canvas')
+                this.hiddenCanvas.width = 224
+                this.hiddenCanvas.height = 224
+                this.hiddenCtx = this.hiddenCanvas.getContext('2d')
+                this.hiddenCtx.lineCap = 'round'
+                this.hiddenCtx.lineJoin = 'round'
+                this.hiddenCtx.imageSmoothingEnabled = true
+
+                // State
+                this.isStarted = false
+                this.isHandTracking = false
+                this.isMouseMode = false
+                this.showCameraView = false
+                this.currentTool = 'pen'
+                this.currentColor = '#FFFFFF' // Default to white
+                this.brushSize = 12 // Default brush size
+                this.isDrawing = false
+                this.lastPoint = null
+                this.hiddenLastPoint = null
+                this.okayGestureProcessed = false
+
+                // MediaPipe
+                this.hands = null
+                this.camera = null
+
+                this.init()
+            }
+
+            init() {
+                this.setupEventListeners()
+                this.setupTools()
+                this.updateStatus('Click "Start Camera" to begin!')
+                this.clearHiddenCanvas()
+            }
+
+            setupEventListeners() {
+                document.getElementById('startBtn').onclick = () => this.startCamera()
+                document.getElementById('showCameraBtn').onclick = () => this.toggleCameraView()
+                document.getElementById('clearBtn').onclick = () => this.clearCanvas()
+                document.getElementById('sendToAiBtn').onclick = () => this.sendToAI()
+                document.getElementById('mouseBtn').onclick = () => this.toggleMouseMode()
+                document.getElementById('handBtn').onclick = () => this.toggleHandTracking()
+            }
+
+            setupTools() {
+                // Setup colors - multiple colors for display
+                const colors = ['#FFFFFF', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500']
+                const colorPalette = document.getElementById('colorPalette')
+                
+                colors.forEach(color => {
+                    const btn = document.createElement('button')
+                    btn.className = `w-8 h-8 md:w-10 md:h-10 rounded-xl border-3 transition-all shadow-lg hover:scale-110 ${color === this.currentColor ? 'border-gray-800 scale-110 shadow-xl' : 'border-gray-300'}`
+                    btn.style.backgroundColor = color
+                    btn.onclick = () => this.selectColor(color)
+                    colorPalette.appendChild(btn)
+                })
+
+                // Setup brush sizes - multiple sizes for display
+                const brushSizes = [
+                    { size: 3, label: 'Small', icon: '•' },
+                    { size: 6, label: 'Medium', icon: '●' },
+                    { size: 12, label: 'Large', icon: '⬤' },
+                    { size: 18, label: 'XL', icon: '⚫' }
+                ]
+                const brushContainer = document.getElementById('brushSizes')
+                
+                brushSizes.forEach(brush => {
+                    const btn = document.createElement('button')
+                    btn.className = `w-full px-3 md:px-4 py-2 md:py-3 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-lg hover:shadow-xl ${brush.size === this.brushSize ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' : 'bg-gradient-to-r from-gray-200 to-gray-300 text-gray-800'}`
+                    btn.innerHTML = `<span class="flex items-center justify-center gap-1 md:gap-2">${brush.icon} ${brush.label}</span>`
+                    btn.onclick = () => this.selectBrushSize(brush.size)
+                    brushContainer.appendChild(btn)
+                })
+
+                // Setup tool buttons
+                document.getElementById('penTool').onclick = () => this.selectTool('pen')
+                document.getElementById('eraserTool').onclick = () => this.selectTool('eraser')
+            }
+
+            selectColor(color) {
+                this.currentColor = color
+                document.querySelectorAll('#colorPalette button').forEach(btn => {
+                    btn.className = btn.className.replace('border-gray-800 scale-110 shadow-xl', 'border-gray-300')
+                    if (btn.style.backgroundColor === color) {
+                        btn.className = btn.className.replace('border-gray-300', 'border-gray-800 scale-110 shadow-xl')
+                    }
+                })
+            }
+
+            selectBrushSize(size) {
+                this.brushSize = size
+                document.querySelectorAll('#brushSizes button').forEach(btn => {
+                    btn.className = 'w-full px-3 md:px-4 py-2 md:py-3 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-lg hover:shadow-xl bg-gradient-to-r from-gray-200 to-gray-300 text-gray-800'
+                })
+                event.target.className = 'w-full px-3 md:px-4 py-2 md:py-3 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-lg hover:shadow-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white'
+            }
+
+            selectTool(tool) {
+                this.currentTool = tool
+                document.getElementById('penTool').className = 'tool-btn bg-gradient-to-r from-gray-400 to-gray-500 text-white px-3 md:px-4 py-2 md:py-3 rounded-xl text-xs md:text-sm font-semibold shadow-lg transition-all hover:shadow-xl'
+                document.getElementById('eraserTool').className = 'tool-btn bg-gradient-to-r from-gray-400 to-gray-500 text-white px-3 md:px-4 py-2 md:py-3 rounded-xl text-xs md:text-sm font-semibold shadow-lg transition-all hover:shadow-xl'
+                
+                if (tool === 'pen') {
+                    document.getElementById('penTool').className = 'tool-btn bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 md:px-4 py-2 md:py-3 rounded-xl text-xs md:text-sm font-semibold shadow-lg transition-all hover:shadow-xl'
+                } else {
+                    document.getElementById('eraserTool').className = 'tool-btn bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 md:px-4 py-2 md:py-3 rounded-xl text-xs md:text-sm font-semibold shadow-lg transition-all hover:shadow-xl'
+                }
+            }
+
+            async startCamera() {
+                if (this.isStarted) return
+                
+                try {
+                    this.updateStatus('Requesting camera permission...')
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: 'user'
+                        }
+                    })
+
+                    this.video.srcObject = stream
+                    this.video.onloadedmetadata = () => {
+                        this.setupCanvas()
+                        this.isStarted = true
+                        this.updateBlackScreenMessage()
+                        this.updateStatus('Camera ready!')
+                        document.getElementById('startBtn').innerHTML = '<span class="flex items-center gap-1 md:gap-2">📹 <span>Camera Active</span></span>'
+                        document.getElementById('startBtn').disabled = true
+                        document.getElementById('showCameraBtn').disabled = false
+                        document.getElementById('handBtn').disabled = false
+                        
+                        // Auto-start hand tracking after 1 second
+                        setTimeout(() => {
+                            this.toggleHandTracking()
+                        }, 1000)
+                    }
+                } catch (error) {
+                    this.updateStatus('Camera access denied')
+                    console.error('Camera error:', error)
+                }
+            }
+
+         isCanvasEmpty() {
+            // Kanvasın piksel məlumatlarını yoxlayaraq boş olub-olmadığını müəyyənləşdir
+            const imageData = this.drawingCtx.getImageData(0, 0, this.drawingCanvas.width, this.drawingCanvas.height);
+            const data = imageData.data;
+            // Piksel məlumatlarında hər hansı qeyri-şəffaf piksel varsa, kanvas boş deyil
+            for (let i = 3; i < data.length; i += 4) {
+                if (data[i] !== 0) { // Alpha kanalı (şəffaflıq) 0-dan böyükdürsə
+                    return false;
+                }
+            }
+            return true;
+        }
+  
+        updateBlackScreenMessage(handDetected) {
+            if (!this.isStarted) {
+                // Kamera başlamayıb, ilkin mesajı göstər
+                this.blackScreen.style.display = 'flex';
+                this.blackScreen.innerHTML = `
+                    <div class="text-white text-center floating-element">
+                        <div class="text-4xl md:text-8xl mobile-canvas-emoji mb-3 md:mb-6 animate-pulse">📹</div>
+                        <h2 class="text-lg md:text-2xl lg:text-3xl mobile-canvas-text font-bold mb-2 md:mb-4">Ready to Create</h2>
+                        <p class="text-sm md:text-lg lg:text-xl mobile-canvas-subtitle opacity-90 mb-1 md:mb-2">Click "Start Camera" to begin your AI drawing journey</p>
+                        <p class="text-xs md:text-sm mobile-canvas-desc opacity-75">Camera permission will be requested</p>
+                        <div class="mt-3 md:mt-6 flex justify-center">
+                            <div class="flex space-x-1 md:space-x-2">
+                                <div class="mobile-dots w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
+                                <div class="mobile-dots w-3 h-3 bg-purple-500 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                                <div class="mobile-dots w-3 h-3 bg-pink-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (!handDetected && !this.showCameraView && this.isCanvasEmpty()) {
+                // Kamera aktivdir, əl aşkar edilməyib, kamera görünmür və kanvas boşdur, rəsm mesajını göstər
+                this.blackScreen.style.display = 'flex';
+                this.blackScreen.innerHTML = `
+                    <div class="text-white text-center floating-element">
+                        <div class="text-4xl md:text-8xl mobile-canvas-emoji mb-3 md:mb-6 animate-pulse">✏️</div>
+                        <h2 class="text-lg md:text-2xl lg:text-3xl mobile-canvas-text font-bold mb-2 md:mb-4">Draw Your Masterpiece</h2>
+                        <p class="text-sm md:text-lg lg:text-xl mobile-canvas-subtitle opacity-90 mb-1 md:mb-2">Create amazing art on this canvas</p>
+                        <p class="text-xs md:text-sm mobile-canvas-desc opacity-75 mt-1">Use hand gestures or touch to draw</p>
+                        <div class="mt-3 md:mt-6 flex justify-center">
+                            <div class="flex space-x-1 md:space-x-2">
+                                <div class="mobile-dots w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
+                                <div class="mobile-dots w-3 h-3 bg-purple-500 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                                <div class="mobile-dots w-3 h-3 bg-pink-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Əl aşkar edilib, kamera görünür və ya kanvas boş deyil, blackScreen-i gizlət
+                this.blackScreen.style.display = 'none';
+            }
+        }
+
+            toggleCameraView() {
+                this.showCameraView = !this.showCameraView
+                const btn = document.getElementById('showCameraBtn')
+                
+                if (this.showCameraView) {
+                    this.video.style.display = 'block'
+                    this.blackScreen.style.display = 'none'
+                    btn.innerHTML = '<span class="flex items-center gap-1 md:gap-2">🙈 <span>Hide Camera</span></span>'
+                    btn.className = 'btn-danger text-white mobile-btn px-6 py-3 rounded-xl font-semibold text-sm lg:text-base shadow-lg'
+                    this.updateStatus('Camera visible')
+                } else {
+                    this.video.style.display = 'none'
+                    this.blackScreen.style.display = 'flex'
+                    btn.innerHTML = '<span class="flex items-center gap-1 md:gap-2">👁️ <span>Show Camera</span></span>'
+                    btn.className = 'btn-success text-white mobile-btn px-6 py-3 rounded-xl font-semibold text-sm lg:text-base shadow-lg'
+                    this.updateStatus('Camera hidden')
+                }
+            }
+
+            setupCanvas() {
+                const videoWidth = this.video.videoWidth || 1280
+                const videoHeight = this.video.videoHeight || 720
+
+                // Set visible canvas to video size for better drawing experience
+                this.drawingCanvas.width = videoWidth
+                this.drawingCanvas.height = videoHeight
+                this.handCanvas.width = videoWidth
+                this.handCanvas.height = videoHeight
+
+                // Ensure round line caps and joins for visible canvas
+                this.drawingCtx.lineCap = 'round'
+                this.drawingCtx.lineJoin = 'round'
+                this.drawingCtx.imageSmoothingEnabled = true
+
+                // Clear hidden canvas (sets black background)
+                this.clearHiddenCanvas()
+            }
+
+            async toggleHandTracking() {
+                if (!this.isStarted) {
+                    this.updateStatus('Please start camera first!')
+                    return
+                }
+
+                if (!this.isHandTracking) {
+                    try {
+                        this.updateStatus('Loading hand tracking...')
+                        await this.initializeMediaPipe()
+                        this.isHandTracking = true
+                        this.updateStatus('Hand tracking active!')
+                        document.getElementById('handBtn').innerHTML = '<span class="flex items-center justify-center gap-1 md:gap-2">✋ <span>Stop Hand Tracking</span></span>'
+                        document.getElementById('handBtn').className = 'w-full btn-danger text-white px-4 md:px-6 py-3 md:py-4 rounded-xl font-semibold shadow-lg text-sm md:text-base'
+                    } catch (error) {
+                        console.error('Hand tracking error:', error)
+                        this.updateStatus('Hand tracking failed')
+                    }
+                } else {
+                    this.isHandTracking = false
+                    if (this.camera) {
+                        this.camera.stop()
+                    }
+                    this.updateStatus('Hand tracking stopped')
+                    this.updateGestureInfo('')
+                    document.getElementById('handBtn').innerHTML = '<span class="flex items-center justify-center gap-1 md:gap-2">✋ <span>Start Hand Tracking</span></span>'
+                    document.getElementById('handBtn').className = 'w-full btn-primary text-white px-4 md:px-6 py-3 md:py-4 rounded-xl font-semibold shadow-lg text-sm md:text-base'
+                }
+            }
+
+            async initializeMediaPipe() {
+                if (!window.Hands) {
+                    throw new Error('MediaPipe not loaded')
+                }
+
+                this.hands = new window.Hands({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+                })
+
+                this.hands.setOptions({
+                    maxNumHands: 1,
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.8,
+                    minTrackingConfidence: 0.7,
+                })
+
+                this.hands.onResults((results) => this.onHandResults(results))
+
+                if (window.Camera) {
+                    this.camera = new window.Camera(this.video, {
+                        onFrame: async () => {
+                            if (this.hands && this.isHandTracking) {
+                                await this.hands.send({ image: this.video })
+                            }
+                        },
+                        width: 1280,
+                        height: 720,
+                    })
+                    this.camera.start()
+                }
+            }
+
+           onHandResults(results) {
+            this.handCtx.clearRect(0, 0, this.handCanvas.width, this.handCanvas.height);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                this.drawHandVisualization(landmarks);
+                const fingerStates = this.getFingerStates(landmarks);
+                const gesture = this.recognizeGesture(fingerStates, landmarks);
+                const indexTip = this.transformCoordinates(landmarks[8]);
+                this.updateGestureInfo(`${gesture.name}`);
+                this.handleGesture(gesture, indexTip);
+                // Əl aşkar edilib, blackScreen-i gizlət
+                this.updateBlackScreenMessage(true);
+            } else {
+                this.updateGestureInfo('Hand not detected');
+                this.endDrawing();
+                this.okayGestureProcessed = false;
+                // Əl aşkar edilməyib, blackScreen-i kanvasın vəziyyətinə görə yenilə
+                this.updateBlackScreenMessage(false);
+            }
+        }
+
+
+            transformCoordinates(landmark) {
+                // Scale hand coordinates to visible canvas size
+                return {
+                    x: (1 - landmark.x) * this.drawingCanvas.width,
+                    y: landmark.y * this.drawingCanvas.height,
+                }
+            }
+
+            transformToHiddenCanvas(point) {
+                // Transform point from visible canvas to hidden 224x224 canvas
+                const scaleX = this.hiddenCanvas.width / this.drawingCanvas.width
+                const scaleY = this.hiddenCanvas.height / this.drawingCanvas.height
+                return {
+                    x: point.x * scaleX,
+                    y: point.y * scaleY
+                }
+            }
+
+             getFingerStates(landmarks) {
+            const fingerTips = [4, 8, 12, 16, 20]
+            const fingerPips = [3, 6, 10, 14, 18]
+
+            return fingerTips.map((tipIndex, i) => {
+                const tip = landmarks[tipIndex]
+                const pip = landmarks[fingerPips[i]]
+
+                if (i === 0) {
+                    // Thumb: check if tip is to the right of pip (for right hand)
+                    return tip.x > pip.x
+                } else {
+                    // Other fingers: relaxed threshold for detection
+                    return tip.y < pip.y - 0.01 // Reduced from 0.02 to make detection less strict
+                }
+            })
+        }
+
+
+            recognizeGesture(fingerStates, landmarks) {
+            const [thumb, index, middle, ring, pinky] = fingerStates
+            const extendedCount = fingerStates.filter(Boolean).length
+
+            if (this.isOkayGesture(landmarks)) {
+                return { type: 'okay', name: '👌 Okay - AI Ready!' }
+            }
+
+            // Drawing: only index finger extended, relaxed condition
+            if (extendedCount <= 2 && index && !middle) {
+                return { type: 'draw', name: '✏️ Drawing Mode' }
+            }
+
+            // Erasing: exactly index and middle fingers extended, others folded
+            if (extendedCount === 2 && index && middle && !ring && !pinky) {
+                return { type: 'erase', name: '🧹 Eraser Mode' }
+            }
+
+            // Fully open hand or other states treated as none
+            return { type: 'none', name: '🤚 Waiting' }
+        }
+
+
+            isOkayGesture(landmarks) {
+                const thumbTip = landmarks[4]
+                const indexTip = landmarks[8]
+                const middleTip = landmarks[12]
+                const ringTip = landmarks[16]
+                const pinkyTip = landmarks[20]
+
+                const distThumbIndex = Math.sqrt(
+                    Math.pow(thumbTip.x - indexTip.x, 2) +
+                    Math.pow(thumbTip.y - indexTip.y, 2)
+                )
+
+                const isClose = distThumbIndex < 0.05
+                const isMiddleUp = middleTip.y < landmarks[9].y - 0.03
+                const isRingUp = ringTip.y < landmarks[13].y - 0.03
+                const isPinkyUp = pinkyTip.y < landmarks[17].y - 0.03
+
+                return isClose && isMiddleUp && isRingUp && isPinkyUp
+            }
+
+           handleGesture(gesture, point) {
+            // Buffer to maintain drawing state for 100ms
+            if (gesture.type !== 'draw' && this.isDrawing && gesture.type !== 'okay') {
+                if (!this.drawTimeout) {
+                    this.drawTimeout = setTimeout(() => {
+                        this.endDrawing()
+                        this.drawTimeout = null
+                    }, 100)
+                }
+                return
+            }
+            clearTimeout(this.drawTimeout)
+            this.drawTimeout = null
+
+            switch (gesture.type) {
+                case 'okay':
+                    // Stop drawing immediately to prevent unwanted lines
+                    this.endDrawing()
+                    if (!this.okayGestureProcessed) {
+                        this.handleOkayGesture()
+                        this.okayGestureProcessed = true
+                    }
+                    break
+                case 'draw':
+                    this.handleDrawing(point)
+                    this.okayGestureProcessed = false // Reset when drawing starts
+                    break
+                case 'erase':
+                    this.handleErasing(point)
+                    this.okayGestureProcessed = false // Reset when erasing starts
+                    break
+                default:
+                    this.endDrawing()
+                    this.okayGestureProcessed = false // Reset for non-okay gestures
+                    break
+            }
+        }
+
+
+handleDrawing(point) {
+            // Apply exponential moving average for smoothing
+            const smoothingFactor = 0.5
+            const smoothedPoint = {
+                x: this.lastPoint ? (smoothingFactor * point.x + (1 - smoothingFactor) * this.lastPoint.x) : point.x,
+                y: this.lastPoint ? (smoothingFactor * point.y + (1 - smoothingFactor) * this.lastPoint.y) : point.y
+            }
+
+            if (!this.isDrawing) {
+                this.isDrawing = true
+                this.lastPoint = smoothedPoint
+                this.hiddenLastPoint = this.transformToHiddenCanvas(smoothedPoint)
+                this.okayGestureProcessed = false
+
+                // Draw on visible canvas with user's chosen color and size
+                this.drawingCtx.globalCompositeOperation = 'source-over'
+                this.drawingCtx.fillStyle = this.currentColor
+                this.drawingCtx.beginPath()
+                this.drawingCtx.arc(smoothedPoint.x, smoothedPoint.y, this.brushSize / 2, 0, 2 * Math.PI)
+                this.drawingCtx.fill()
+
+                // Draw on hidden canvas with fixed white color and 12px size
+                this.hiddenCtx.globalCompositeOperation = 'source-over'
+                this.hiddenCtx.fillStyle = '#FFFFFF'
+                this.hiddenCtx.beginPath()
+                this.hiddenCtx.arc(this.hiddenLastPoint.x, this.hiddenLastPoint.y, 6, 0, 2 * Math.PI) // 12px / 2 = 6
+                this.hiddenCtx.fill()
+
+                console.log('Drawing started at:', smoothedPoint, 'Hidden point:', this.hiddenLastPoint)
+            } else if (this.lastPoint) {
+                const hiddenPoint = this.transformToHiddenCanvas(smoothedPoint)
+
+                // Draw on visible canvas
+                this.drawingCtx.globalCompositeOperation = 'source-over'
+                this.drawingCtx.strokeStyle = this.currentColor
+                this.drawingCtx.lineWidth = this.brushSize
+                this.drawingCtx.lineCap = 'round'
+                this.drawingCtx.lineJoin = 'round'
+
+                this.drawingCtx.beginPath()
+                this.drawingCtx.moveTo(this.lastPoint.x, this.lastPoint.y)
+                this.drawingCtx.lineTo(smoothedPoint.x, smoothedPoint.y)
+                this.drawingCtx.stroke()
+
+                // Draw on hidden canvas with fixed settings
+                this.hiddenCtx.globalCompositeOperation = 'source-over'
+                this.hiddenCtx.strokeStyle = '#FFFFFF'
+                this.hiddenCtx.lineWidth = 12
+                this.hiddenCtx.lineCap = 'round'
+                this.hiddenCtx.lineJoin = 'round'
+
+                this.hiddenCtx.beginPath()
+                this.hiddenCtx.moveTo(this.hiddenLastPoint.x, this.hiddenLastPoint.y)
+                this.hiddenCtx.lineTo(hiddenPoint.x, hiddenPoint.y)
+                this.hiddenCtx.stroke()
+
+                this.lastPoint = smoothedPoint
+                this.hiddenLastPoint = hiddenPoint
+
+                console.log('Drawing line to:', smoothedPoint, 'Hidden point:', hiddenPoint)
+            }
+        }
+
+            handleErasing(point) {
+                const hiddenPoint = this.transformToHiddenCanvas(point)
+
+                // Erase on visible canvas
+                this.drawingCtx.globalCompositeOperation = 'destination-out'
+                this.drawingCtx.lineWidth = this.brushSize * 2
+                this.drawingCtx.lineCap = 'round'
+                this.drawingCtx.lineJoin = 'round'
+
+                // Erase on hidden canvas
+                this.hiddenCtx.globalCompositeOperation = 'destination-out'
+                this.hiddenCtx.lineWidth = 24 // Fixed eraser size for hidden canvas
+                this.hiddenCtx.lineCap = 'round'
+                this.hiddenCtx.lineJoin = 'round'
+
+                if (this.lastPoint && this.hiddenLastPoint) {
+                    // Erase on visible canvas
+                    this.drawingCtx.beginPath()
+                    this.drawingCtx.moveTo(this.lastPoint.x, this.lastPoint.y)
+                    this.drawingCtx.lineTo(point.x, point.y)
+                    this.drawingCtx.stroke()
+
+                    // Erase on hidden canvas
+                    this.hiddenCtx.beginPath()
+                    this.hiddenCtx.moveTo(this.hiddenLastPoint.x, this.hiddenLastPoint.y)
+                    this.hiddenCtx.lineTo(hiddenPoint.x, hiddenPoint.y)
+                    this.hiddenCtx.stroke()
+                } else {
+                    // Start erasing from current point
+                    this.drawingCtx.beginPath()
+                    this.drawingCtx.arc(point.x, point.y, this.brushSize, 0, 2 * Math.PI)
+                    this.drawingCtx.fill()
+
+                    this.hiddenCtx.beginPath()
+                    this.hiddenCtx.arc(hiddenPoint.x, hiddenPoint.y, 12, 0, 2 * Math.PI)
+                    this.hiddenCtx.fill()
+                }
+
+                this.lastPoint = point
+                this.hiddenLastPoint = hiddenPoint
+                this.okayGestureProcessed = false
+            }
+
+            endDrawing() {
+                this.isDrawing = false
+                this.lastPoint = null
+                this.hiddenLastPoint = null
+            }
+
+                    drawHandVisualization(landmarks) {
+            const connections = [
+                [0, 1], [1, 2], [2, 3], [3, 4],
+                [0, 5], [5, 6], [6, 7], [7, 8],
+                [5, 9], [9, 10], [10, 11], [11, 12],
+                [9, 13], [13, 14], [14, 15], [15, 16],
+                [13, 17], [17, 18], [18, 19], [19, 20],
+                [0, 17]
+            ]
+
+            this.handCtx.strokeStyle = 'rgba(0, 255, 0, 0.8)'
+            this.handCtx.lineWidth = 2
+            this.handCtx.beginPath()
+
+            connections.forEach(([start, end]) => {
+                const startPoint = {
+                    x: (1 - landmarks[start].x) * this.handCanvas.width,
+                    y: landmarks[start].y * this.handCanvas.height
+                }
+                const endPoint = {
+                    x: (1 - landmarks[end].x) * this.handCanvas.width,
+                    y: landmarks[end].y * this.handCanvas.height
+                }
+                this.handCtx.moveTo(startPoint.x, startPoint.y)
+                this.handCtx.lineTo(endPoint.x, endPoint.y)
+            })
+
+            this.handCtx.stroke()
+
+            landmarks.forEach((landmark, index) => {
+                const point = {
+                    x: (1 - landmark.x) * this.handCanvas.width,
+                    y: landmark.y * this.handCanvas.height
+                }
+                this.handCtx.fillStyle = [4, 8, 12, 16, 20].includes(index) ? '#ff0000' : '#00ff00'
+                this.handCtx.beginPath()
+                this.handCtx.arc(point.x, point.y, index === 8 ? 8 : 4, 0, 2 * Math.PI)
+                this.handCtx.fill()
+            })
+        }
+
+            toggleMouseMode() {
+                this.isMouseMode = !this.isMouseMode
+                const btn = document.getElementById('mouseBtn')
+                
+                if (this.isMouseMode) {
+                    this.drawingCanvas.style.pointerEvents = 'all'
+                    this.drawingCanvas.style.cursor = 'crosshair'
+                    btn.innerHTML = '<span class="flex items-center justify-center gap-1 md:gap-2">📱 <span>Disable Touch Mode</span></span>'
+                    btn.className = 'w-full btn-danger text-white px-4 md:px-6 py-3 md:py-4 rounded-xl font-semibold shadow-lg text-sm md:text-base'
+                    this.updateStatus('Touch mode enabled!')
+                    this.setupTouchDrawing()
+                } else {
+                    this.drawingCanvas.style.pointerEvents = 'none'
+                    this.drawingCanvas.style.cursor = 'default'
+                    btn.innerHTML = '<span class="flex items-center justify-center gap-1 md:gap-2">🖱️ <span>Enable Touch Mode</span></span>'
+                    btn.className = 'w-full btn-success text-white px-4 md:px-6 py-3 md:py-4 rounded-xl font-semibold shadow-lg text-sm md:text-base'
+                    this.updateStatus('Touch mode disabled')
+                }
+            }
+
+            setupTouchDrawing() {
+                let drawing = false
+                let lastPoint = null
+                let hiddenLastPoint = null
+
+                const getEventPos = (e) => {
+                    const rect = this.drawingCanvas.getBoundingClientRect()
+                    let clientX, clientY
+                    
+                    if (e.touches && e.touches.length > 0) {
+                        // Touch event
+                        clientX = e.touches[0].clientX
+                        clientY = e.touches[0].clientY
+                    } else {
+                        // Mouse event
+                        clientX = e.clientX
+                        clientY = e.clientY
+                    }
+                    
+                    return {
+                        x: (clientX - rect.left) * (this.drawingCanvas.width / rect.width),
+                        y: (clientY - rect.top) * (this.drawingCanvas.height / rect.height),
+                    }
+                }
+
+                // Mouse events
+                this.drawingCanvas.onmousedown = (e) => {
+                    drawing = true
+                    lastPoint = getEventPos(e)
+                    hiddenLastPoint = this.transformToHiddenCanvas(lastPoint)
+                    this.okayGestureProcessed = false
+                    e.preventDefault()
+                }
+
+                this.drawingCanvas.onmousemove = (e) => {
+                    if (!drawing || !lastPoint) return
+                    this.drawOnCanvas(lastPoint, getEventPos(e))
+                    lastPoint = getEventPos(e)
+                    hiddenLastPoint = this.transformToHiddenCanvas(lastPoint)
+                    e.preventDefault()
+                }
+
+                this.drawingCanvas.onmouseup = () => {
+                    drawing = false
+                    lastPoint = null
+                    hiddenLastPoint = null
+                }
+
+                this.drawingCanvas.onmouseleave = () => {
+                    drawing = false
+                    lastPoint = null
+                    hiddenLastPoint = null
+                }
+
+                // Touch events
+                this.drawingCanvas.ontouchstart = (e) => {
+                    drawing = true
+                    lastPoint = getEventPos(e)
+                    hiddenLastPoint = this.transformToHiddenCanvas(lastPoint)
+                    this.okayGestureProcessed = false
+                    e.preventDefault()
+                }
+
+                this.drawingCanvas.ontouchmove = (e) => {
+                    if (!drawing || !lastPoint) return
+                    this.drawOnCanvas(lastPoint, getEventPos(e))
+                    lastPoint = getEventPos(e)
+                    hiddenLastPoint = this.transformToHiddenCanvas(lastPoint)
+                    e.preventDefault()
+                }
+
+                this.drawingCanvas.ontouchend = () => {
+                    drawing = false
+                    lastPoint = null
+                    hiddenLastPoint = null
+                }
+
+                this.drawingCanvas.ontouchcancel = () => {
+                    drawing = false
+                    lastPoint = null
+                    hiddenLastPoint = null
+                }
+            }
+
+            drawOnCanvas(fromPoint, toPoint) {
+                const hiddenFromPoint = this.transformToHiddenCanvas(fromPoint)
+                const hiddenToPoint = this.transformToHiddenCanvas(toPoint)
+
+                if (this.currentTool === 'pen') {
+                    // Draw on visible canvas with user settings
+                    this.drawingCtx.globalCompositeOperation = 'source-over'
+                    this.drawingCtx.strokeStyle = this.currentColor
+                    this.drawingCtx.lineWidth = this.brushSize
+
+                    // Draw on hidden canvas with fixed settings
+                    this.hiddenCtx.globalCompositeOperation = 'source-over'
+                    this.hiddenCtx.strokeStyle = '#FFFFFF'
+                    this.hiddenCtx.lineWidth = 12
+                } else {
+                    // Erase on visible canvas
+                    this.drawingCtx.globalCompositeOperation = 'destination-out'
+                    this.drawingCtx.lineWidth = this.brushSize * 2
+
+                    // Erase on hidden canvas
+                    this.hiddenCtx.globalCompositeOperation = 'destination-out'
+                    this.hiddenCtx.lineWidth = 24
+                }
+
+                this.drawingCtx.lineCap = 'round'
+                this.drawingCtx.lineJoin = 'round'
+                this.hiddenCtx.lineCap = 'round'
+                this.hiddenCtx.lineJoin = 'round'
+
+                // Draw on visible canvas
+                this.drawingCtx.beginPath()
+                this.drawingCtx.moveTo(fromPoint.x, fromPoint.y)
+                this.drawingCtx.lineTo(toPoint.x, toPoint.y)
+                this.drawingCtx.stroke()
+
+                // Draw on hidden canvas
+                this.hiddenCtx.beginPath()
+                this.hiddenCtx.moveTo(hiddenFromPoint.x, hiddenFromPoint.y)
+                this.hiddenCtx.lineTo(hiddenToPoint.x, hiddenToPoint.y)
+                this.hiddenCtx.stroke()
+            }
+
+            clearCanvas() {
+                // Clear visible canvas
+                this.drawingCtx.clearRect(0, 0, this.drawingCanvas.width, this.drawingCanvas.height)
+                
+                // Clear hidden canvas
+                this.clearHiddenCanvas()
+                
+                this.updateStatus('Canvas cleared!')
+                this.hideAIResults()
+                this.okayGestureProcessed = false
+            }
+
+            clearHiddenCanvas() {
+                this.hiddenCtx.fillStyle = '#000000'
+                this.hiddenCtx.fillRect(0, 0, this.hiddenCanvas.width, this.hiddenCanvas.height)
+            }
+
+            captureDrawing() {
+                // Return the hidden canvas data (224x224, black bg, white lines, 12px)
+                return this.hiddenCanvas.toDataURL('image/png')
+            }
+
+            async handleOkayGesture() {
+                const imageData = this.captureDrawing()
+                if (!imageData) {
+                    this.updateStatus('No drawing found! Please draw something first.')
+                    return
+                }
+                await this.sendToAI(imageData)
+            }
+
+            async sendToAI(imageData) {
+                const image = imageData || this.captureDrawing()
+                if (!image) {
+                    this.updateStatus('No drawing found! Please draw something first.')
+                    return
+                }
+
+                this.showProgress()
+                this.updateStatus('Sending to AI...')
+
+                try {
+                    let progress = 0
+                    const progressInterval = setInterval(() => {
+                        progress = Math.min(progress + 10, 90)
+                        this.updateProgress(progress)
+                    }, 200)
+
+                    const response = await fetch('https://airdrawback.onrender.com/predict', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ image }),
+                    })
+
+                    clearInterval(progressInterval)
+                    this.updateProgress(100)
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`)
+                    }
+
+                    const result = await response.json()
+                    this.displayAIResults(image, result)
+                    this.updateStatus(`AI recognized: ${result.prediction.class_name}!`)
+                } catch (error) {
+                    console.error('AI processing error:', error)
+                    this.updateStatus('AI processing failed. Make sure the backend is running.')
+                } finally {
+                    setTimeout(() => this.hideProgress(), 1000)
+                }
+            }
+
+displayAIResults(originalImage, result) {
+                console.log('🔍 Displaying AI results:', JSON.stringify(result, null, 2));
+                document.getElementById('originalSketch').src = originalImage;
+                
+                const emojis = {
+                    'airplane': '✈️',
+                    'apple': '🍎',
+                    'bicycle': '🚲',
+                    'bird': '🐦',
+                    'butterfly': '🦋',
+                    'candle': '🕯️',
+                    'car': '🚗',
+                    'cat': '🐱',
+                    'circle': '⭕',
+                    'clock': '🕒',
+                    'envelope': '✉️',
+                    'face': '😊',
+                    'fish': '🐟',
+                    'flower': '🌸',
+                    'giraffe': '🦒',
+                    'house': '🏠',
+                    'star': '⭐',
+                    'sun': '☀️',
+                    'tree': '🌳',
+                    'umbrella': '☂️'
+                };
+                
+                document.getElementById('predictionEmoji').textContent = emojis[result.prediction.class_name] || '🤖';
+                document.getElementById('predictionClass').textContent = result.prediction.class_name.replace('_', ' ').toUpperCase();
+                document.getElementById('predictionConfidence').textContent = `${result.prediction.confidence.toFixed(1)}% confidence`;
+                
+                // Animate confidence bar
+                const confidenceBar = document.getElementById('confidenceBar');
+                setTimeout(() => {
+                    confidenceBar.style.width = `${result.prediction.confidence}%`;
+                }, 500);
+                
+                // Handle reference image with validation
+                const referenceImage = document.getElementById('referenceImage');
+                console.log('🔍 Setting reference image:', result.processed_image.substring(0, 50) + '...');
+                if (result.processed_image && (result.processed_image.startsWith('data:image/jpeg;base64,') || result.processed_image.startsWith('data:image/png;base64,'))) {
+                    referenceImage.src = result.processed_image;
+                    console.log('✅ Reference image set to base64 data');
+                } else {
+                    console.error('⚠️ Invalid reference image format:', result.processed_image);
+                    referenceImage.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==';
+                    referenceImage.alt = `No image available for ${result.prediction.class_name}`;
+                }
+                
+                referenceImage.onerror = () => {
+                    console.error('❌ Failed to load reference image:', result.processed_image);
+                    referenceImage.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==';
+                    referenceImage.alt = `Failed to load image for ${result.prediction.class_name}`;
+                    this.updateStatus(`Failed to load reference image for ${result.prediction.class_name}`);
+                };
+
+                const allPredictions = document.getElementById('allPredictions');
+                allPredictions.innerHTML = '';
+                
+                Object.entries(result.prediction.all_predictions).forEach(([className, confidence]) => {
+                    const div = document.createElement('div');
+                    div.className = 'text-center p-2 md:p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl shadow-lg prediction-card hover:shadow-xl transition-all';
+                    div.innerHTML = `
+                        <div class="text-xl md:text-3xl mb-1 md:mb-2">${emojis[className] || '❓'}</div>
+                        <p class="text-xs md:text-sm font-bold capitalize text-gray-800">${className.replace('_', ' ')}</p>
+                        <p class="text-xs text-gray-600 font-medium">${confidence.toFixed(1)}%</p>
+                        <div class="mt-1 md:mt-2 w-full bg-gray-200 rounded-full h-1">
+                            <div class="bg-gradient-to-r from-blue-500 to-purple-500 h-1 rounded-full transition-all duration-1000" style="width: ${confidence}%"></div>
+                        </div>
+                    `;
+                    allPredictions.appendChild(div);
+                });
+
+                this.showAIResults();
+            }
+            showAIResults() {
+                document.getElementById('aiResults').classList.remove('hidden')
+                // Smooth scroll to results
+                document.getElementById('aiResults').scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+
+            hideAIResults() {
+                document.getElementById('aiResults').classList.add('hidden')
+            }
+
+            showProgress() {
+                document.getElementById('progressOverlay').classList.remove('hidden')
+            }
+
+            hideProgress() {
+                document.getElementById('progressOverlay').classList.add('hidden')
+                this.updateProgress(0)
+            }
+
+            updateProgress(value) {
+                document.getElementById('progressBar').style.width = `${value}%`
+                document.getElementById('progressText').textContent = `${value}% complete`
+            }
+
+            updateStatus(message) {
+                const badge = document.getElementById('statusBadge')
+                badge.innerHTML = `
+                    <span class="flex items-center gap-1 md:gap-2">
+                        <div class="w-1.5 h-1.5 md:w-2 md:h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        ${message}
+                    </span>
+                `
+            }
+
+            updateGestureInfo(message) {
+                const badge = document.getElementById('gestureBadge')
+                if (message) {
+                    badge.textContent = message
+                    badge.classList.remove('hidden')
+                } else {
+                    badge.classList.add('hidden')
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            window.airDrawApp = new AirDrawApp()
+        })
+    </script>
+</body>
+</html>
